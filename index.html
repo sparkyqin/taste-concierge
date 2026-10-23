@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taste Concierge — your evening, composed by the taste graph</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #faf9f7; color: #1c1b1a; padding: 2rem 1rem 4rem;
+    display: flex; justify-content: center; min-height: 100vh;
+  }
+  @media (prefers-color-scheme: dark) { body { background: #14130f; color: #ece9e2; } }
+  .wrap { width: 100%; max-width: 680px; }
+  h1 { font-size: 1.6rem; letter-spacing: -0.02em; margin: 0 0 .35rem; }
+  .sub { opacity: .7; margin: 0 0 2rem; font-size: .95rem; }
+  .card {
+    background: #fff; border: 1px solid #e7e4dd; border-radius: 14px;
+    padding: 1.4rem; margin-bottom: 1rem;
+  }
+  @media (prefers-color-scheme: dark) { .card { background: #1d1c17; border-color: #2c2a22; } }
+  label { display: block; font-weight: 600; margin: 1rem 0 .4rem; font-size: .95rem; }
+  label:first-child { margin-top: 0; }
+  input, textarea {
+    width: 100%; padding: .7rem .8rem; font: inherit; border-radius: 9px;
+    border: 1px solid #d8d4ca; background: transparent; color: inherit;
+  }
+  @media (prefers-color-scheme: dark) { input, textarea { border-color: #3a372c; } }
+  textarea { resize: vertical; min-height: 64px; }
+  button {
+    margin-top: 1.2rem; padding: .75rem 1.5rem; font: inherit; font-weight: 650;
+    border-radius: 999px; border: 0; cursor: pointer;
+    background: #1c1b1a; color: #faf9f7;
+  }
+  @media (prefers-color-scheme: dark) { button { background: #ece9e2; color: #14130f; } }
+  button:disabled { opacity: .5; cursor: wait; }
+  .slot { border-left: 3px solid #c96f4a; padding-left: 1rem; margin-bottom: 1.3rem; }
+  .slot h3 { margin: 0 0 .2rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; opacity: .65; }
+  .pick { font-size: 1.15rem; font-weight: 650; margin: 0 0 .25rem; }
+  .why { font-size: .85rem; opacity: .75; margin: 0 0 .4rem; }
+  .alt { display: inline-block; margin: .15rem .4rem .15rem 0; padding: .25rem .7rem;
+         border-radius: 999px; border: 1px solid #d8d4ca; font-size: .8rem; cursor: pointer; }
+  @media (prefers-color-scheme: dark) { .alt { border-color: #3a372c; } }
+  .reject { color: #b3552f; cursor: pointer; font-size: .8rem; margin-left: .6rem; }
+  .err { color: #b3552f; font-size: .9rem; }
+  .seedlist { font-size: .82rem; opacity: .7; margin-top: .8rem; }
+  footer { margin-top: 2.5rem; font-size: .8rem; opacity: .55; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Taste Concierge</h1>
+  <p class="sub">Three answers. One evening — dinner, film, playlist, a small gift —
+     composed by Qloo's taste graph so it fits <em>you</em>, not the charts.</p>
+
+  <div class="card" id="interview">
+    <label for="q1">Name a movie, show, or band you genuinely love</label>
+    <input id="q1" placeholder="e.g. Studio Ghibli films, Radiohead, Severance" />
+
+    <label for="q2">What does a perfect evening feel like?</label>
+    <textarea id="q2" placeholder="e.g. Cozy, low-key, a little melancholic — good food then something beautiful"></textarea>
+
+    <label for="q3">Anything you'd rather skip tonight?</label>
+    <input id="q3" placeholder="e.g. horror, crowds, anything too intense" />
+
+    <button id="go">Compose my evening</button>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div id="plan" style="display:none">
+    <div class="card" id="slots"></div>
+    <div class="card">
+      <b>How this worked</b>
+      <div class="seedlist" id="seeds"></div>
+      <p style="font-size:.85rem; opacity:.75; margin:.6rem 0 0">
+        Every pick is a taste-graph affinity, not a popularity contest. Dismiss anything —
+        the plan recomposes around your signal.</p>
+    </div>
+  </div>
+
+  <footer>Built for the Qloo Agentic Hackathon. Powered by the Qloo taste graph (250M+ entities).</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let currentPlan = null;
+
+$("go").onclick = async () => {
+  const answers = {
+    lovedWorks: $("q1").value.trim(),
+    eveningVibe: $("q2").value.trim(),
+    avoid: $("q3").value.trim(),
+  };
+  if (!answers.lovedWorks || !answers.eveningVibe) {
+    $("err").textContent = "The first two answers are needed — the graph needs something to hold onto.";
+    return;
+  }
+  $("err").textContent = "";
+  $("go").disabled = true;
+  $("go").textContent = "Consulting the taste graph…";
+  try {
+    const r = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ answers }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    currentPlan = data.plan;
+    render(data.plan);
+  } catch (e) {
+    $("err").textContent = String(e.message || e);
+  } finally {
+    $("go").disabled = false;
+    $("go").textContent = "Compose my evening";
+  }
+};
+
+function render(plan) {
+  $("plan").style.display = "block";
+  $("slots").innerHTML = plan.slots.map((s, i) => `
+    <div class="slot">
+      <h3>${s.label}</h3>
+      <p class="pick">${s.pick ? s.pick.name : "—"}${s.pick ? `<span class="reject" data-i="${i}">not tonight ✕</span>` : ""}</p>
+      <p class="why">${s.why}</p>
+      ${s.alternates.map(a => `<span class="alt" data-i="${i}" data-name="${a.name}">${a.name}</span>`).join("")}
+    </div>`).join("");
+  $("seeds").textContent = plan.profile.seedEntities.length
+    ? "Taste-graph seeds: " + plan.profile.seedEntities.map(e => e.name).join(" · ")
+    : "No entities matched — try naming a more specific work you love.";
+  document.querySelectorAll(".reject").forEach(el => el.onclick = () => rejectPick(el.dataset.i));
+  document.querySelectorAll(".alt").forEach(el => el.onclick = () => pickAlt(el.dataset.i, el.dataset.name));
+  $("plan").scrollIntoView({ behavior: "smooth" });
+}
+
+async function rejectPick(i) {
+  const name = currentPlan.slots[i].pick?.name;
+  if (!name) return;
+  await recompute({ plan: currentPlan, reject: name });
+}
+
+async function pickAlt(i, name) {
+  // Choosing an alternate = rejecting the current pick; the graph does the rest.
+  const name_ = currentPlan.slots[i].pick?.name;
+  if (name_) currentPlan.profile.rejected.push(name_);
+  await recompute({ plan: currentPlan, reject: name });
+}
+
+async function recompute(body) {
+  $("go").disabled = true;
+  try {
+    const r = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    currentPlan = data.plan;
+    render(data.plan);
+  } catch (e) {
+    $("err").textContent = String(e.message || e);
+  } finally {
+    $("go").disabled = false;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "taste-concierge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Three answers in, one culturally coherent evening out - powered by the Qloo taste graph",
+  "scripts": {
+    "dev": "npx vercel dev"
+  }
+}
