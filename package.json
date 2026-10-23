@@ -5,5 +5,9 @@
   "description": "Three answers in, one culturally coherent evening out - powered by the Qloo taste graph",
   "scripts": {
     "dev": "npx vercel dev"
+  },
+  "devDependencies": {
+    "@vercel/node": "^4.0.0",
+    "typescript": "^5.0.0"
   }
 }
